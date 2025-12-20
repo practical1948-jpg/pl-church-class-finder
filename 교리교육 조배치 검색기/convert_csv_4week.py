@@ -26,12 +26,43 @@ else:
         print('   사용법: python convert_csv_4week.py [파일명.csv]')
         sys.exit(1)
 
-# Location별 이미지 매핑
-location_images = {
-    '웨슬리홀': 'images/1214_웨슬리홀.jpg',
-    '칼빈채플': 'images/1214_칼빈.jpg',
-    '자모영아실': 'images/자모 영아실 안내.jpg'
+# images 폴더에서 실제 이미지 파일 찾기
+def find_latest_image(location_keyword):
+    """주어진 키워드로 images 폴더에서 가장 최신 이미지 파일 찾기"""
+    images_dir = 'images'
+    if not os.path.exists(images_dir):
+        return None
+    
+    # 키워드에 맞는 이미지 파일 찾기
+    pattern = os.path.join(images_dir, f'*{location_keyword}*.jpg')
+    matching_files = glob.glob(pattern)
+    
+    if matching_files:
+        # 가장 최신 파일 반환
+        latest_file = max(matching_files, key=os.path.getmtime)
+        return latest_file
+    return None
+
+# Location별 이미지 자동 매핑
+location_images = {}
+location_keywords = {
+    '웨슬리홀': '웨슬리홀',
+    '칼빈채플': '칼빈',
+    '자모영아실': '자모'
 }
+
+print('🔍 이미지 파일 검색 중...')
+for location, keyword in location_keywords.items():
+    image_path = find_latest_image(keyword)
+    if image_path:
+        location_images[location] = image_path
+        print(f'   ✅ {location}: {image_path}')
+    else:
+        # 기본 이미지 (없을 경우)
+        location_images[location] = f'images/{keyword}.jpg'
+        print(f'   ⚠️  {location}: 이미지를 찾을 수 없음 (기본값: {location_images[location]})')
+
+print()
 
 members = []
 skipped_count = 0
@@ -104,10 +135,38 @@ print(f'\n✅ 총 {len(members)}명의 데이터가 data.json에 저장되었습
 print(f'   - 웨슬리홀: {sum(1 for m in members if m["location"] == "웨슬리홀")}명')
 print(f'   - 칼빈채플: {sum(1 for m in members if m["location"] == "칼빈채플")}명')
 print(f'   - 자모영아실: {sum(1 for m in members if m["location"] == "자모영아실")}명')
+
 print(f'\n📊 나이 통계:')
 print(f'   - 60세 이상: {sum(1 for m in members if m["age"] >= 60)}명')
 print(f'   - 50-59세: {sum(1 for m in members if 50 <= m["age"] < 60)}명')
 print(f'   - 50세 미만: {sum(1 for m in members if 0 < m["age"] < 50)}명')
 print(f'   - 나이 미입력: {sum(1 for m in members if m["age"] == 0)}명')
+
+# 이미지 경로 확인
+print(f'\n🖼️  이미지 경로 확인:')
+for location, image_path in location_images.items():
+    count = sum(1 for m in members if m["location"] == location)
+    if count > 0:
+        exists = os.path.exists(image_path)
+        status = '✅' if exists else '❌'
+        print(f'   {status} {location}: {image_path} ({count}명)')
+        if not exists:
+            print(f'      ⚠️  파일이 존재하지 않습니다!')
+
+# 실제 사용된 이미지 경로 통계
+print(f'\n📸 실제 할당된 이미지:')
+image_usage = {}
+for member in members:
+    img = member['mapImage']
+    if img in image_usage:
+        image_usage[img] += 1
+    else:
+        image_usage[img] = 1
+
+for img_path, count in sorted(image_usage.items()):
+    exists = os.path.exists(img_path)
+    status = '✅' if exists else '❌'
+    print(f'   {status} {img_path}: {count}명')
+
 if skipped_count > 0:
     print(f'\n⚠️  스킵된 항목: {skipped_count}개 (전화번호 없음)')
